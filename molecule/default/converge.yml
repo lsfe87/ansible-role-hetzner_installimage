@@ -1,0 +1,7 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Include lionel_fernandes.hetzner_installimage2"
+      include_role:
+        name: "lionel_fernandes.hetzner_installimage2"

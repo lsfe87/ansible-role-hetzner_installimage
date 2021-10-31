@@ -1,0 +1,63 @@
+---
+# note: when the server was booted into rescue mode already it will still return active = false
+# active = true only appears when rescue mode was activated but the system not yet re-booted 
+- name: Check the current rescue mode state
+  uri:
+    url: "{{ hetzner_installimage_robot_api_base_url }}/boot/{{ hetzner_installimage_ansible_host_ip }}/rescue"
+    method: GET
+    user: "{{ hetzner_installimage_webservice_username }}"
+    password: "{{ hetzner_installimage_webservice_password }}"
+    force_basic_auth: yes
+    status_code: 200
+  delegate_to: localhost
+  register: hetzner_installimage_rescue
+
+- name: Compose rescue request body
+  set_fact:
+    rescue_request:
+        os: linux
+        arch: 64
+        authorized_key: "{{ key_fingerprints }}"
+  delegate_to: localhost
+
+- name: Activate rescue mode
+  uri:
+    url: "{{ hetzner_installimage_robot_api_base_url }}/boot/{{ hetzner_installimage_ansible_host_ip }}/rescue"
+    method: POST
+    user: "{{ hetzner_installimage_webservice_username }}"
+    password: "{{ hetzner_installimage_webservice_password }}"
+    force_basic_auth: yes
+    body: "{{ rescue_request }}"
+    status_code: 200
+    body_format: form-urlencoded
+  delegate_to: localhost
+  when: not hetzner_installimage_rescue.json.rescue.active
+
+- name: Execute hardware reset
+  uri:
+    url: "{{ hetzner_installimage_robot_api_base_url }}/reset/{{ hetzner_installimage_ansible_host_ip }}"
+    method: POST
+    user: "{{ hetzner_installimage_webservice_username }}"
+    password: "{{ hetzner_installimage_webservice_password }}"
+    force_basic_auth: yes
+    body: "type=hw"
+    status_code: 200
+    body_format: form-urlencoded
+  delegate_to: localhost
+  register: reset
+
+- name: Remove server from local known_hosts file
+  known_hosts:
+    path: "{{ lookup('env','HOME') }}/.ssh/known_hosts"
+    name: "{{ ansible_host }}"
+    state: absent
+  delegate_to: localhost
+
+- name: Waiting for server to come back
+  wait_for:
+    host: "{{ hetzner_installimage_wait_for_host }}"
+    port: 22
+    delay: "{{ hetzner_installimage_reboot_pause }}"
+    timeout: 300
+  delegate_to: localhost
+...

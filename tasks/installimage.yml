@@ -1,0 +1,68 @@
+---
+- name: Copy public key into tempfile
+  copy:
+    remote_src: yes
+    src: /root/.ssh/authorized_keys
+    dest: /root/tmpKey
+  retries: 3
+  delay: 5
+  register: cp_ssh_key
+  until: cp_ssh_key.state is defined
+
+- name: Download custom OS image
+  get_url:
+    url: "{{ hetzner_installimage_custom_image_url }}"
+    dest: /tmp/{{ hetzner_installimage_custom_image_url | basename }}
+    mode: '0640'
+  when: hetzner_installimage_custom_image_url is defined
+
+- name: Include installimage config tasks
+  include: config.yml
+
+- name: Run installimage
+  command: /root/.oldroot/nfs/install/installimage -K /root/.ssh/authorized_keys -c /root/installimage.cfg -a
+  register: installimage_result
+  changed_when: true
+  failed_when: "'Error' in installimage_result.stderr or 'failed' in installimage_result.stdout"
+
+- name: Do another hardware reset
+  uri:
+    url: "{{ hetzner_installimage_robot_api_base_url }}/reset/{{ hetzner_installimage_ansible_host_ip }}"
+    method: POST
+    user: "{{ hetzner_installimage_webservice_username }}"
+    password: "{{ hetzner_installimage_webservice_password }}"
+    force_basic_auth: yes
+    body: "type=hw"
+    status_code: 200
+    body_format: form-urlencoded
+  delegate_to: localhost
+  register: reset
+
+- name: Remove server from local known_hosts file
+  known_hosts:
+    path: "{{ lookup('env','HOME') }}/.ssh/known_hosts"
+    name: "{{ ansible_host }}"
+    state: absent
+  delegate_to: localhost
+
+- name: Waiting for server to come back
+  wait_for:
+    host: "{{ hetzner_installimage_wait_for_host }}"
+    port: 22
+    delay: "{{ hetzner_installimage_reboot_pause }}"
+    timeout: 300
+  delegate_to: localhost
+
+- name: Set the server name in the Hetzner Robot if defined
+  uri:
+    url: "{{ hetzner_installimage_robot_api_base_url }}/server/{{ hetzner_installimage_ansible_host_ip }}"
+    method: POST
+    user: "{{ hetzner_installimage_webservice_username }}"
+    password: "{{ hetzner_installimage_webservice_password }}"
+    force_basic_auth: yes
+    body: "server_name={{ hetzner_installimage_server_name }}"
+    status_code: 200
+  delegate_to: localhost
+  register: hetzner_installimage_rescue
+  when: hetzner_installimage_server_name is defined
+...

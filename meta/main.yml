@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  author: lionel_fernandes
+  role_name: hetzner_installimage
+  description: Provision your Hetzner dedicated servers with installimage by leveraging the Hetzner Robot Webservice https://robot.your-server.de/doc/webservice/en.html
+
+  license: MIT
+
+  min_ansible_version: 2.7
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - xenial
+        - bionic
+    - name: Debian
+      versions:
+        - stretch
+        - buster
+
+  galaxy_tags:
+    - hetzner
+    - installimage
+
+dependencies: []
+...

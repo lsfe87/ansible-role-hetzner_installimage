@@ -1,0 +1,39 @@
+---
+hetzner_installimage_robot_api_base_url: https://robot-ws.your-server.de
+
+# installimage parameters
+# the following parameters are automatically detected if not set
+# if 2 disks are detected a software raid with level 1 will be configured
+# hetzner_installimage_install_drives:
+# - DRIVE1 /dev/sda
+# - DRIVE2 /dev/sdb
+# hetzner_installimage_install_raid:
+# - SWRAID 1
+# - SWRAIDLEVEL 1
+hetzner_installimage_install_bootloader: grub
+hetzner_installimage_install_hostname: "{{ inventory_hostname }}"
+hetzner_installimage_install_partitions:
+- PART swap swap 32G
+- PART /boot ext4 1G
+- PART / ext4 all
+hetzner_installimage_install_image: Ubuntu-1604-xenial-64-minimal.tar.gz
+
+# to be set when a custom OS image should be downloaded and used during the installation process
+#hetzner_installimage_custom_image_url: https:://yourserver.de/images/Ubuntu-1604-xenial-64-custom.tar.gz
+
+# prevent reinstallation of running servers with /etc/hetzner_installimage_provisioned.flag file
+hetzner_installimage_ignore_provisioned_flag: no
+#
+# time to wait before the reboot kicks after requesting hardware reset
+hetzner_installimage_reboot_pause: 30
+
+# should be overwritten if host is not available with SSH via ansible_host which usually is the IP
+# should be a rare case and is used for running the tests
+hetzner_installimage_wait_for_host: "{{ ansible_host }}"
+
+# should be overwritten when a FQDN instead of the IP is used as ansible_host, IP is needed for talking to hetzner API but
+# ansible_default_ipv4.address can't be used as that would need gather_facts to be true which is not possible here
+hetzner_installimage_ansible_host_ip: "{{ ansible_host }}"
+hetzner_installimage_key_fingerprints: []
+hetzner_installimage_skip_confirmation: no
+...

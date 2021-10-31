@@ -1,0 +1,22 @@
+---
+- name: Get all keys
+  uri:
+    url: "{{ hetzner_installimage_robot_api_base_url }}/key"
+    method: GET
+    user: "{{ hetzner_installimage_webservice_username }}"
+    password: "{{ hetzner_installimage_webservice_password }}"
+    status_code: 200
+    force_basic_auth: yes
+  register: get_keys_response
+  when: hetzner_installimage_key_fingerprints | length == 0
+
+- name: Map all key fingerprints
+  set_fact:
+    key_fingerprints: "{{ get_keys_response.json |  selectattr('key', 'defined') | map(attribute='key') | map(attribute='fingerprint') | list }}"
+  when: hetzner_installimage_key_fingerprints | length == 0
+
+- name: Map given key fingerprint
+  set_fact:
+    key_fingerprints: "{{ hetzner_installimage_key_fingerprints }}"
+  when: hetzner_installimage_key_fingerprints | length > 0
+...

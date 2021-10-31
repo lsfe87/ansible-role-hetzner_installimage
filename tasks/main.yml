@@ -1,0 +1,14 @@
+---
+- name: Resolve key fingerprints
+  import_tasks: resolve_key_fingerprints.yml
+  delegate_to: localhost
+  run_once: yes
+
+- name: Include rescue mode handling tasks
+  import_tasks: rescue_mode.yml
+  when: not ansible_check_mode
+
+- name: Include installimage handling tasks
+  import_tasks: installimage.yml
+  when: not ansible_check_mode
+...

@@ -1,0 +1,91 @@
+---
+- name: Check if software RAID status is set in hetzner_installimage_install_raid
+  set_fact:
+    sw_raid_status: "{{ item.split(' ') | last | int }}"
+  when: item is match("SWRAID") and item is not match("SWRAIDLEVEL")
+  with_items: "{{ hetzner_installimage_install_raid | default([]) }}"
+
+- name: Check if software RAID level is set in hetzner_installimage_install_raid
+  set_fact:
+    sw_raid_level: "{{ item.split(' ') | last | int }}"
+  when: item is match("SWRAIDLEVEL")
+  with_items: "{{ hetzner_installimage_install_raid | default([]) }}"
+
+- name: Automatically determine the number of disks
+  shell: |
+    set -o pipefail
+    lsblk | grep disk
+  args:
+    executable: /bin/bash
+  register: disk_number
+  changed_when: false
+
+- name: Fail playbook if no disk was found using lsblk
+  fail:
+    msg: Insufficient number of disks detected
+  when: disk_number.stdout_lines|length < 1
+
+- name: Fail playbook if more than 2 disks were found using lsblk
+  fail:
+    msg: More than 2 disks detected
+  when: disk_number.stdout_lines|length > 2
+
+- name: Set automatic software RAID status for single disk when not set in config
+  set_fact:
+    sw_raid_status: 0
+  when: disk_number.stdout_lines|length == 1 and sw_raid_status is not defined
+
+- name: Set automatic software RAID level for single disk when not set in config
+  set_fact:
+    sw_raid_level: 0
+  when: disk_number.stdout_lines|length == 1 and sw_raid_level is not defined
+
+- name: Set automatic software RAID status for 2 disks when not set in config
+  set_fact:
+    sw_raid_status: 1
+  when: disk_number.stdout_lines|length == 2 and sw_raid_status is not defined
+
+- name: Set automatic software RAID level 1 for 2 disks when not set in config
+  set_fact:
+    sw_raid_level: 1
+  when: disk_number.stdout_lines|length == 2 and sw_raid_level is not defined
+
+- name: Automatically determine first disk device
+  shell: |
+    set -o pipefail
+    lsblk | grep disk | awk '{split($0, a, " "); print a[1]}' | sort | head -1 | tail -1
+  args:
+    executable: /bin/bash
+  register: first_disk_device
+  changed_when: false
+
+- name: Automatically determine second disk device for RAID 1
+  shell: |
+    set -o pipefail
+    lsblk | grep disk | awk '{split($0, a, " "); print a[1]}' | sort | head -2 | tail -1
+  args:
+    executable: /bin/bash
+  register: second_disk_device
+  when: sw_raid_status|int == 1
+  changed_when: false
+
+- name: Set hetzner_installimage_install_raid values when not defined
+  set_fact:
+    hetzner_installimage_install_raid:
+      - SWRAID {{ sw_raid_status }}
+      - SWRAIDLEVEL {{ sw_raid_level }}
+  when: hetzner_installimage_install_raid is not defined
+
+- name: Set hetzner_installimage_install_drives value for no RAID / single disk
+  set_fact:
+    hetzner_installimage_install_drives:
+      - DRIVE1 /dev/{{ first_disk_device.stdout }}
+  when: sw_raid_status|int == 0
+
+- name: Set hetzner_installimage_install_drives value for RAID 1
+  set_fact:
+    hetzner_installimage_install_drives:
+      - DRIVE1 /dev/{{ first_disk_device.stdout }}
+      - DRIVE2 /dev/{{ second_disk_device.stdout }}
+  when: sw_raid_status|int == 1
+...

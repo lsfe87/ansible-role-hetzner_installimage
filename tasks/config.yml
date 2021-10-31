@@ -1,0 +1,45 @@
+---
+- name: Include automatic software RAID detection when respective variables are not set
+  include_tasks: determine_software_raid.yml
+  when: hetzner_installimage_install_drives is not defined
+
+- name: Set image path variable when image was downloaded
+  set_fact:
+    hetzner_installimage_full_image_path: "/tmp/{{ hetzner_installimage_custom_image_url }}"
+  when: hetzner_installimage_custom_image_url is defined and hetzner_installimage_custom_image_url|length
+
+- name: Check if image file exists in regular image folder
+  stat:
+    path: "/root/.oldroot/nfs/images/{{ hetzner_installimage_install_image }}"
+  register: regular_image_file
+  when: hetzner_installimage_full_image_path is not defined
+
+- name: Set image path variable when it exists in regular folder
+  set_fact:
+    hetzner_installimage_full_image_path: "/root/.oldroot/nfs/images/{{ hetzner_installimage_install_image }}"
+  when: hetzner_installimage_full_image_path is not defined and regular_image_file.stat.exists
+
+- name: Check if image file exists in image folder for old images
+  stat:
+    path: "/root/.oldroot/nfs/images.old/{{ hetzner_installimage_install_image }}"
+  register: old_image_file
+  when: hetzner_installimage_full_image_path is not defined
+
+- name: Set image path variable when it exists in folder for old images
+  set_fact:
+    hetzner_installimage_full_image_path: "/root/.oldroot/nfs/images.old/{{ hetzner_installimage_install_image }}"
+  when: hetzner_installimage_full_image_path is not defined and old_image_file.stat.exists
+
+- name: Fail when image path could not be determined
+  fail:
+    msg: Could not determine OS image path
+  when: hetzner_installimage_full_image_path is not defined
+
+- name: Copy installimage configuration file
+  template:
+    src: installimage.j2
+    dest: /root/installimage.cfg
+    owner: root
+    group: root
+    mode: 0644
+...
